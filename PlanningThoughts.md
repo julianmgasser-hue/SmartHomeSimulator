@@ -58,4 +58,19 @@ Users brauchen zusätzlich noch 2 arten von Actions!
 Hm... ich muss auch Multithreaden, wenn ich will, dass der User Inputs geben kann,
 unabhängig von der Simulation, muss das in verschiedenen Prozessen sein. Wenn der user 
 immer mega schnell eingibt würde es auch ohne gehen, und wenn man eine lausige 
-Simulation macht, auch
+Simulation macht, auch aber readln sollte die Simulation nicht beeinflussen.
+
+## Anpassung der Frame-Verwaltung
+PS: Die gesamte Architektur wurde von mir geplant, dieser Abschnitt wurde aber von KI zusammengefasst. 
+
+Ursprünglich war geplant, pro Sekunde entweder einen Aktualisierungsframe oder einen Aktionsframe auszuführen.
+
+Dieses Konzept wurde angepasst, da dadurch die Aktualisierung der Sensorwerte von der Anzahl auszuführender Aktionen abhängig wäre.
+
+Neu wird jede Sekunde ein Aktualisierungsframe eingeplant. Zwischen den Aktualisierungsframes werden möglichst viele Aktionsframes verarbeitet.
+
+Sollte die Verarbeitung der Aktionen länger dauern, bleiben die noch nicht begonnenen Aktionen in der Warteschlange.
+
+Der nächste Aktualisierungsframe erhält Priorität, sobald der aktuell ausgeführte Aktionsframe abgeschlossen ist.
+
+Damit wird sichergestellt, dass die Simulation regelmässig neue Daten generiert und trotzdem möglichst viele Aktionen ausführen kann.
