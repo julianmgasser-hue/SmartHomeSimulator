@@ -52,7 +52,7 @@ Da nur neue Aktionen in die Queue kommen können, wenn man evaluiert und die Use
 in die Aktionsqueue führt, wird sichergestellt, dass es regelmässig
 Aktualisierungsframes gibt. UserActions gehen immer direkt in die UserActionQueue,
 damit sie direkt im nächsten (passenden) Frame behandelt werden. Oh!
-Users brauchen zusätzlich noch 2 arten von Actions!
+Users brauchen zusätzlich noch 2 arten von actions!
 1. Aktionsbefehle und 2. Anzeigebefehle (1 für eingriff in die Simulation),
 2. 2 für anzeigen der Daten der simulation
 Hm... ich muss auch Multithreaden, wenn ich will, dass der User Inputs geben kann,

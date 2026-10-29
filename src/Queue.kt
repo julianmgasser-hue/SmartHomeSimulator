@@ -1,11 +1,11 @@
 class Queue {
-    private val actionQueue = mutableListOf<Action>()
+    private val actionQueue = mutableListOf<Frame>()
 
-    fun getNextAction(): Action?{
+    fun getNextAction(): Frame?{
         return if (actionQueue.isEmpty()) null else actionQueue.first()
     }
 
-    fun addAction(action: Action){
+    fun addAction(action: Frame){
         actionQueue.add(action)
     }
 }
