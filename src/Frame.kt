@@ -1,1 +1,3 @@
-open class Frame
+open class Frame () : Command {
+
+}

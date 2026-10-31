@@ -1,6 +1,6 @@
 import java.util.UUID
 
-data class IoTDevice (
-    val name : String,
-    val id : UUID = UUID.randomUUID()
+open class IoTDevice (
+    open val name : String,
+    open val id : UUID = UUID.randomUUID()
 )

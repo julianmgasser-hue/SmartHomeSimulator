@@ -51,7 +51,7 @@ Die Automatisierung und damit dieser Einsatz des Observer Patterns gehören zu d
 ## Technischer Überblick
 
 - **Oberfläche:** Terminal / Konsole, verwaltet durch einen `IOManager`.
-- **Geräte:** Gemeinsame Basis `IoTDevice`; Fähigkeiten werden über Interfaces wie `Sensor` und `Actuator` abgebildet.
+- **Geräte:** Gemeinsame Basis `IoTDevice`; Fähigkeiten werden über Interfaces wie `Measurable` und `Switchable` abgebildet.
 - **Simulation:** Ein eigener Thread plant jede Sekunde einen Aktualisierungsframe ein und verarbeitet dazwischen Aktionsframes.
 - **Steuerung:** AnzeigeActions lesen konsistente Snapshots direkt im UI; zustandsverändernde ArbeitsActions gelangen über die `UserActionQueue` in die `ActionQueue`. Auch automatisch ausgelöste Aktionen werden dort verarbeitet.
 - **Persistenz:** Ein `StorageManager` verwaltet die begrenzte Frame-Historie im RAM und speichert den aktuellen Zustand als JSON.

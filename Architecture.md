@@ -7,7 +7,7 @@
 Die Geräte sollen über gemeinsame Eigenschaften und individuell kombinierbare Fähigkeiten verfügen:
 
 - Eine **abstrakte Basisklasse `IoTDevice`** ist für gemeinsame Eigenschaften wie Geräte-ID und Name vorgesehen.
-- **Interfaces** wie `Sensor` (Werte bereitstellen) und `Actuator` (Aktionen ausführen) beschreiben unterschiedliche Fähigkeiten. Je nach Gerät können beide Fähigkeiten kombiniert werden.
+- **Interfaces** wie `Measurable` (Werte bereitstellen) und `Switchable` (Aktionen ausführen) beschreiben unterschiedliche Fähigkeiten. Je nach Gerät können beide Fähigkeiten kombiniert werden.
 - Dadurch muss nicht für jede denkbare Kombination von Fähigkeiten eine zusätzliche Vererbungsstufe geschaffen werden.
 
 **Noch zu prüfen:** Im ursprünglichen Entwurf ist für jedes `IoTDevice` auch ein allgemeiner An-/Aus-Status vorgesehen. Ob dieser für reine Sensoren sinnvoll ist oder nur für bestimmte Geräte gelten sollte, wird beim Klassendiagramm entschieden.
@@ -180,7 +180,7 @@ Um Speicher- und Laufzeitkosten zu begrenzen, sollen Frames nur die zur Wiederhe
 | --- | --- |
 | `IOManager` | Konsolen-Eingaben und -Ausgaben; Aktions- von Anzeigebefehlen unterscheiden |
 | `IoTDevice` | Gemeinsame Grundlage der Geräte |
-| `Sensor` / `Actuator` | Fähigkeiten als Interfaces bereitstellen |
+| `Measurable` / `Switchable` | Fähigkeiten als Interfaces bereitstellen |
 | `DeviceFactory` | Geräteobjekte gemäss Benutzerauswahl erzeugen (**Factory Pattern**) |
 | `DeviceController` | Sensoränderungen beobachten und Automatisierungsregeln auswerten (**Observer Pattern**) |
 | Simulationssteuerung (Name offen) | Frame-Takt und Wechsel zwischen Aktualisierungs- und Aktionsframes organisieren |
