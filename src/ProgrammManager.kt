@@ -5,7 +5,7 @@ import devices.WaterDispenser
 import frames.RefreshFrame
 
 class ProgrammManager {
-    val actionQueue = FrameQueue()
+    val actionQueue = Queue()
     val automations = mutableListOf<Automation>()
     val ioManager = IOManager()
 
@@ -38,7 +38,7 @@ class ProgrammManager {
         }
     }
 
-    fun checkAllAutomations(actionQueue: FrameQueue){
+    fun checkAllAutomations(actionQueue: Queue){
         automations.forEach{
             val action = it.checkAutomation()?:return@forEach
             if (actionQueue.contains(action)) return@forEach

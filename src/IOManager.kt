@@ -1,7 +1,6 @@
 import devices.Sensor
 import frames.DisplayFrame
 import frames.Frame
-import functionalities.Measurable
 import kotlin.collections.sortedBy
 
 class IOManager {
