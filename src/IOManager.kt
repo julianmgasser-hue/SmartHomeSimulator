@@ -1,5 +1,7 @@
 import devices.Sensor
+import frames.DisplayFrame
 import frames.Frame
+import functionalities.Measurable
 import kotlin.collections.sortedBy
 
 class IOManager {
@@ -30,12 +32,30 @@ class IOManager {
             return null
         }
         val device = userInputWords[1]
-        parseUserAction(action, device, devices)
-        return null //temporary, remove!!!
+        return parseUserAction(action, device, devices)
     }
 
-    fun parseUserAction(verb : String, device : String, devices: List<IoTDevice>){
+    fun parseUserAction(verb : String, device : String, devices: List<IoTDevice>): Frame?{
+        when (verb){
+            "read" -> {
+                val desiredDevice = findDevice(device, devices)
+                if (desiredDevice != null) {
+                    val sensor = desiredDevice as? Sensor ?: return null
+                    return DisplayFrame(listOf(sensor))
+                }
+            }
+            else -> return null
+        }
+        return null
+    }
 
+    fun findDevice(deviceDescription : String, devices: List<IoTDevice>): IoTDevice?{
+        devices.forEach {
+            return if(it.id.toString() == deviceDescription) it
+            else if(it.name == deviceDescription) it
+            else null
+        }
+        return null
     }
 
     fun manual(){
@@ -50,7 +70,7 @@ class IOManager {
             work -> add an Action to all actions 
             
             DeviceName/Id 
-            either the exact name of the Device (case sensitive)
+            either the exact name of the Device (case insensitive)
             or the uuid of the Device
         """.trimIndent())
     }

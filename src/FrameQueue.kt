@@ -7,11 +7,16 @@ class FrameQueue(){
         queue.add(frame)
     }
 
-    fun remove(): Frame {
+    fun remove(): Frame? {
+        if (queue.isEmpty()) return null
         return queue.removeFirst()
     }
 
     fun addImportant(frame : Frame){
         queue.addFirst(frame)
+    }
+
+    fun contains(frame : Frame): Boolean{
+        return queue.any{it == frame}
     }
 }

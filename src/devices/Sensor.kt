@@ -1,6 +1,7 @@
 package devices
 
 import IoTDevice
+import exceptions.UnrealisticSimulationException
 import functionalities.Measurable
 import java.util.UUID
 
@@ -18,6 +19,8 @@ data class Sensor (override val name : String, override val id : UUID = UUID.ran
         val targetValue = possibleValues.random() / 100.0
 
         data += (targetValue - data) * 0.2
+
+        if ((data*100).toInt() !in possibleValues) throw UnrealisticSimulationException("Data generated isn't possible")
     }
 
     override fun influenceData(newData : Double) {
