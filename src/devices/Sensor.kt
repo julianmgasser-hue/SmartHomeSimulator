@@ -6,11 +6,12 @@ import java.util.UUID
 
 data class Sensor (override val name : String, override val id : UUID = UUID.randomUUID(), val sensorType: SensorType): Measurable, IoTDevice(name, id) {
     private var data : Double = 0.0
+
     override fun readData(): Double {
         return data
     }
 
-    override fun updateData() {
+    override fun refreshData() {
         val defaultValue = (sensorType.defaultValue * 100).toInt()
         val offset = (sensorType.maxOffset * 100).toInt()
         val possibleValues = (defaultValue - offset)..(defaultValue + offset)
