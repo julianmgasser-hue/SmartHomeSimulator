@@ -28,7 +28,6 @@ class ProgrammManager {
                 actionQueue.addImportant(RefreshFrame(sensors))
                 ioManager.displayData(sensors)
                 startTime = System.currentTimeMillis()
-                checkAllAutomations(actionQueue)
             }else {
                 val userAction = ioManager.userAction(iotDevices)
                 if (userAction != null) actionQueue.addImportant(userAction)
@@ -36,6 +35,7 @@ class ProgrammManager {
 
             val nextAction = actionQueue.remove()?: continue
             nextAction.execute()
+            if (nextAction is RefreshFrame) checkAllAutomations(actionQueue)
         }
     }
 

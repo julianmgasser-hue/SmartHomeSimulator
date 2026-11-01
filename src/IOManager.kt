@@ -39,17 +39,18 @@ class IOManager {
             println("your supposed to enter 2 words!")
             return null
         }
-        val device = userInputWords[1]
+        val device = userInputWords.drop(1).joinToString(" ")
         return parseUserAction(action, device, devices)
     }
 
     fun parseUserAction(verb: String, device: String, devices: List<IoTDevice>): Frame? {
         when (verb) {
             "read" -> {
+                if (device == "all")devices.forEach { it.displayBasicInfos() }
                 val desiredDevice = findDevice(device, devices)
                 if (desiredDevice != null) {
-                    val sensor = desiredDevice as? Sensor ?: return null
-                    return DisplayFrame(listOf(sensor))
+                    val displayable = desiredDevice as? Displayable ?: return null
+                    return DisplayFrame(listOf(displayable))
                 }
             }
 
@@ -108,8 +109,8 @@ class IOManager {
 
     fun findDevice(deviceDescription: String, devices: List<IoTDevice>): IoTDevice? {
         devices.forEach {
-            if (it.id.toString() == deviceDescription) return it
-            if (it.name == deviceDescription) return it
+            if (it.id.toString().lowercase() == deviceDescription) return it
+            if (it.name.lowercase() == deviceDescription) return it
         }
         return null
     }
@@ -140,13 +141,15 @@ class IOManager {
             
             Verbs:
             help -> this instruction
-            read -> read a sensors instruction
+            read -> read a sensors instruction 
             edit -> manipulate data of sensors
             work -> add an Action to all actions 
             
             DeviceName/Id 
             either the exact name of the Device (case insensitive)
             or the uuid of the Device
+            
+            you can show every device, when you write "read all"
         """.trimIndent()
         )
     }
