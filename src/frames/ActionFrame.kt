@@ -5,7 +5,6 @@ import IoTDevice
 
 data class ActionFrame(
     val device : IoTDevice,
-    val parameter: Any?,
     val command : Command
 ): Frame()
 {

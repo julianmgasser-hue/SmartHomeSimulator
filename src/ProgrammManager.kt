@@ -2,10 +2,11 @@ import devices.Lamp
 import devices.Sensor
 import devices.SensorType
 import devices.WaterDispenser
+import frames.Frame
 import frames.RefreshFrame
 
 class ProgrammManager {
-    val actionQueue = Queue()
+    val actionQueue = Queue<Frame>()
     val automations = mutableListOf<Automation>()
     val ioManager = IOManager()
 
@@ -38,7 +39,7 @@ class ProgrammManager {
         }
     }
 
-    fun checkAllAutomations(actionQueue: Queue){
+    fun checkAllAutomations(actionQueue: Queue<Frame>){
         automations.forEach{
             val action = it.checkAutomation()?:return@forEach
             if (actionQueue.contains(action)) return@forEach
@@ -47,8 +48,8 @@ class ProgrammManager {
     }
 
     fun updateDevices(addedSensors : List<IoTDevice>, deletedSensors : List<IoTDevice>){
-        deletedSensors.forEach { iotDevices.add(it) }
-        addedSensors.forEach { iotDevices.remove(it) }
+        deletedSensors.forEach { iotDevices.remove(it) }
+        addedSensors.forEach { iotDevices.add(it) }
         sensors = iotDevices.filterIsInstance<Sensor>().toMutableList()
     }
 }

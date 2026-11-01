@@ -2,11 +2,12 @@ package devices
 
 import IoTDevice
 import exceptions.UnrealisticSimulationException
+import functionalities.Displayable
 import functionalities.Measurable
 import java.util.UUID
 
-data class Sensor (override val name : String, override val id : UUID = UUID.randomUUID(), val sensorType: SensorType): Measurable, IoTDevice(name, id) {
-    private var data : Double = 0.0
+data class Sensor (override val name : String, override val id : UUID = UUID.randomUUID(), val sensorType: SensorType): Displayable, Measurable, IoTDevice(name, id) {
+    private var data : Double = sensorType.defaultValue
 
     override fun readData(): Double {
         return data
@@ -25,6 +26,14 @@ data class Sensor (override val name : String, override val id : UUID = UUID.ran
 
     override fun influenceData(newData : Double) {
         data = newData
+    }
+
+    override fun displayData() {
+        println("""
+            $name 
+            ############################
+            ${sensorType.toString()}: $data
+        """.trimIndent())
     }
 
 }

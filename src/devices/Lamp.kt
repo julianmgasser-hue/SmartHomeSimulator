@@ -1,15 +1,25 @@
 package devices
 
 import IoTDevice
+import functionalities.Displayable
 import functionalities.Switchable
 import java.util.UUID
 
-data class Lamp (override val name : String, override val id : UUID = UUID.randomUUID(), private var isOn: Boolean): Switchable, IoTDevice(name, id){
+data class Lamp (override val name : String, override val id : UUID = UUID.randomUUID(), private var isOn: Boolean): Switchable, Displayable, IoTDevice(name, id){
     override fun turnOn() {
         isOn = true
     }
 
     override fun turnOff() {
         isOn = false
+    }
+
+    override fun displayData() {
+        val status = if (isOn) "on" else "off"
+        println("""
+            Status of $name
+            Currently $status
+            #######################
+        """.trimIndent())
     }
 }
