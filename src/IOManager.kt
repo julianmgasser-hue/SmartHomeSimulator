@@ -15,7 +15,7 @@ import functionalities.Switchable
 import kotlin.collections.sortedBy
 
 class IOManager {
-    val deviceFactory = DeviceFactory()
+    private val deviceFactory = DeviceFactory()
 
     fun displayData(sensors: List<Sensor>) {
         sensors.sortedBy { it.sensorType }.forEach {
@@ -25,7 +25,7 @@ class IOManager {
 
     fun userAction(devices: MutableList<IoTDevice>): Frame? {
         println("Want to take an Action? (y/N)")
-        if (readln().lowercase() == "y") return null
+        if (readln().lowercase() != "y") return null
 
         println("What action?")
         val userInputWords = readln().lowercase().trim().split(Regex("\\s+"))
@@ -49,7 +49,7 @@ class IOManager {
         return parseUserAction(action, device, devices)
     }
 
-    fun parseUserAction(verb: String, device: String, devices: List<IoTDevice>): Frame? {
+    private fun parseUserAction(verb: String, device: String, devices: List<IoTDevice>): Frame? {
         when (verb) {
             "read" -> {
                 if (device == "all") devices.forEach { it.displayBasicInfos() }
@@ -124,7 +124,7 @@ class IOManager {
         return null
     }
 
-    fun findDevice(deviceDescription: String, devices: List<IoTDevice>): IoTDevice? {
+    private fun findDevice(deviceDescription: String, devices: List<IoTDevice>): IoTDevice? {
         devices.forEach {
             if (it.id.toString().lowercase() == deviceDescription) return it
             if (it.name.lowercase() == deviceDescription) return it
@@ -132,7 +132,7 @@ class IOManager {
         return null
     }
 
-    fun getAvailableActions(device: IoTDevice): List<String> { //Only Actions that are available in Commands
+    private fun getAvailableActions(device: IoTDevice): List<String> { //Only Actions that are available in Commands
         val actions = mutableListOf<String>()
         if (device is Switchable) {
             actions.add("Einschalten")
@@ -150,7 +150,7 @@ class IOManager {
         return actions
     }
 
-    fun createDevice(devices: MutableList<IoTDevice>): Frame? {
+    private fun createDevice(devices: MutableList<IoTDevice>): Frame? {
         println("Enter the Type of device, you want to create")
         val options = DeviceType.entries
         options.forEachIndexed { index, type ->
@@ -183,7 +183,7 @@ class IOManager {
         return ActionFrame(newDevice, CreateDeviceCommand(newDevice, devices))
     }
 
-    fun manual() {
+    private fun manual() {
         println(
             """
             STRUCTURE:

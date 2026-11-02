@@ -1,6 +1,8 @@
+import commands.CreateDeviceCommand
 import devices.Sensor
 import devices.SensorType
 import exceptions.UnrealisticSimulationException
+import frames.ActionFrame
 import frames.Frame
 import frames.RefreshFrame
 import kotlin.system.exitProcess
@@ -43,10 +45,16 @@ class ProgrammManager {
             try{
                 nextAction.execute()
             }catch(e : UnrealisticSimulationException){
-                println("Oh no: $e")
+                println("Oh no, the Simulation reached unbearable States!")
                 println("Game Over!")
                 exitProcess(0)
             }
+
+            val nextActionFrame = nextAction as? ActionFrame
+            if (nextActionFrame != null){
+                if (nextActionFrame.command is CreateDeviceCommand) updateDevices(emptyList(), emptyList())
+            }
+
             if (nextAction is RefreshFrame) checkAllAutomations(actionQueue)
         }
     }

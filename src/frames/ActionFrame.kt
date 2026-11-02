@@ -4,7 +4,7 @@ import Command
 import IoTDevice
 
 data class ActionFrame(
-    val device : IoTDevice,
+    private val device : IoTDevice,
     val command : Command
 ): Frame()
 {

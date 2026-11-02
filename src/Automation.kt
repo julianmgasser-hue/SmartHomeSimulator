@@ -1,8 +1,8 @@
 import frames.Frame
 
 class Automation (
-    val condition : () -> Boolean,
-    val action : Frame
+    private val condition : () -> Boolean,
+    private val action : Frame
 ) {
     fun checkAutomation() = if (condition()) action else null
 }
