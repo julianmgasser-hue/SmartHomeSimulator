@@ -13,7 +13,7 @@ ChatGPT wurde im Projekt bisher hauptsaechlich als Lernhilfe und Code-Reviewer e
 - Erklaerungen und einzelne Kotlin-Codebeispiele zu Vererbung, Interfaces, Polymorphismus, generischen Queues und zum Command Pattern.
 - Mehrere Code-Reviews anhand der vom Projektverfasser bereitgestellten Repository-ZIP-Dateien, insbesondere zu `ProgrammManager`, `IOManager`, Sensoren, Queues und Commands.
 
-Die bisherige Beratung bedeutet **nicht**, dass saemtlicher Projektcode durch KI geschrieben wurde. Welche der frueheren Beispiel-Snippets tatsaechlich in den Quellcode uebernommen wurden, muss der Projektverfasser anhand seiner eigenen Bearbeitung dokumentieren.
+Die bisherige Beratung bedeutet **nicht**, dass saemtlicher Projektcode durch KI geschrieben wurde, es wurde fast nichts mit KI geschrieben, was mit KI geschrieben wurde, ist mit Kommentaren beschrieben.
 
 ## 2. Konkrete KI-Codeerstellung: DeviceFactory
 
