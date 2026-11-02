@@ -5,7 +5,7 @@ import functionalities.Displayable
 import functionalities.Switchable
 import java.util.UUID
 
-data class Lamp (override val name : String, override val id : UUID = UUID.randomUUID(), private var isOn: Boolean): Switchable, Displayable, IoTDevice(name, id){
+data class Lamp (override val name : String, override val id : UUID = UUID.randomUUID(), private var isOn: Boolean = false): Switchable, Displayable, IoTDevice(name, id){
     override fun turnOn() {
         isOn = true
     }
