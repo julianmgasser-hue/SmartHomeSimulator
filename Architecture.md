@@ -1,205 +1,206 @@
-# Architektur- und Designentscheidungen
+# Architektur und Designentscheidungen – SmartHomeSimulator
 
-> **Status:** Geplante Architektur, noch keine Bestätigung einer vollständigen Implementierung. Dieses Dokument fasst die Überlegungen aus [PlanningThoughts.md](./PlanningThoughts.md) und die anschliessend getroffenen Entscheidungen zusammen.
+**Dokumentationsstand: 2. November 2026**  
+**Grundlage:** Quellcode aus dem bereitgestellten Projektstand `SmartHomeSimulator-main(4).zip`.
 
-## 1. Geräte und Struktur
+> Dieses Dokument beschreibt die **gegenwärtige Implementierung**. Der ursprüngliche, weitergehende Architekturentwurf bleibt in [PlanningThoughts.md](./PlanningThoughts.md) nachvollziehbar. Insbesondere Multithreading, Observer Pattern, JSON-Persistenz und Frame-Historie wurden geplant, aber bisher nicht umgesetzt.
 
-Die Geräte sollen über gemeinsame Eigenschaften und individuell kombinierbare Fähigkeiten verfügen:
+## 1. Aufbau und Verantwortlichkeiten
 
-- Eine **abstrakte Basisklasse `IoTDevice`** ist für gemeinsame Eigenschaften wie Geräte-ID und Name vorgesehen.
-- **Interfaces** wie `Measurable` (Werte bereitstellen) und `Switchable` (Aktionen ausführen) beschreiben unterschiedliche Fähigkeiten. Je nach Gerät können beide Fähigkeiten kombiniert werden.
-- Dadurch muss nicht für jede denkbare Kombination von Fähigkeiten eine zusätzliche Vererbungsstufe geschaffen werden.
-
-**Noch zu prüfen:** Im ursprünglichen Entwurf ist für jedes `IoTDevice` auch ein allgemeiner An-/Aus-Status vorgesehen. Ob dieser für reine Sensoren sinnvoll ist oder nur für bestimmte Geräte gelten sollte, wird beim Klassendiagramm entschieden.
-
-Das Konzept soll Vererbung, Interfaces und Polymorphismus sinnvoll verbinden. Die genaue Klassenstruktur wird im UML-Klassendiagramm festgehalten.
-
-## 2. Simulation: eigener Thread und Taktung
-
-Die Simulation läuft auf einem **separaten Thread**. **Jede Sekunde wird ein Aktualisierungsframe eingeplant**; zwischen den Aktualisierungen verarbeitet derselbe Thread möglichst viele Aktionsframes. Der Hauptthread bleibt für die Benutzereingaben über den `IOManager` zuständig.
-
-**Begründung:** Konsolenfunktionen wie `readln` blockieren, solange der Benutzer nichts eingibt. Würde die Simulation auf demselben Thread laufen, hinge der Fortschritt der Simulation vom Eingabetempo ab. Durch die Trennung läuft die Simulation zeitlich unabhängig von der Konsole.
-
-Ein bereits begonnener Aktionsframe wird nicht mitten in seiner Ausführung unterbrochen. Deshalb kann ein Aktualisierungsframe bei langen Aktionen etwas verspätet beginnen. Die genaue Behandlung solcher Verzögerungen wird bei der Implementierung festgelegt.
-
-## 3. Frame Arten
-
-### Aktualisierungsframes
-
-Ein Aktualisierungsframe wird jede Sekunde ausgeführt und hat gegenüber den Aktionsframes Priorität.
-
-Während eines Aktualisierungsframes werden:
-
-* Neue Sensorwerte generiert.
-* Automatisierungsregeln evaluiert.
-* Gegebenenfalls neue Aktionen in die ActionQueue eingereiht.
-
-Die Aktualisierungsframes sorgen dafür, dass sich die simulierte Umgebung regelmässig verändert, unabhängig davon, wie viele Aktionen noch auszuführen sind.
-
-### Aktionsframes
-
-Zwischen zwei Aktualisierungsframes werden möglichst viele Aktionsframes verarbeitet.
-
-Ein Aktionsframe verarbeitet die anstehenden Aktionen aus der ActionQueue. Diese Aktionen können durch Automatisierungsregeln oder Benutzerinteraktionen entstehen.
-
-Die Aktionsframes werden nicht durch einen festen Zeittakt begrenzt. Stattdessen verarbeitet die Simulation sie so schnell wie möglich, bis entweder:
-
-* Die ActionQueue leer ist.
-* Der nächste Aktualisierungsframe fällig wird.
-
-Wenn nach einer Sekunde noch Aktionen in der Warteschlange vorhanden sind, wird zuerst der nächste Aktualisierungsframe ausgeführt. Anschliessend wird die Verarbeitung der verbleibenden Aktionen fortgesetzt.
-
-Ein bereits begonnener Aktionsframe wird dabei nicht unterbrochen, sondern abgeschlossen. Danach kann der Aktualisierungsframe ausgeführt werden.
-
-### Entstehung von Aktionsframes
-
-Aktionsframes entstehen durch zwei Ereignisse:
-
-* Eine Automatisierungsregel wird während eines Aktualisierungsframes ausgelöst.
-* Ein Benutzer führt eine zustandsverändernde Aktion aus.
-
-Beide Arten von Aktionen werden über die ActionQueue verarbeitet.
-
-Die Simulation unterscheidet bei der Ausführung nicht zwischen automatisch und manuell ausgelösten Aktionen.
-
-AnzeigeActions erzeugen hingegen keine Aktionsframes, da sie den Simulationszustand nicht verändern.
-
-### Vermeidung unkontrollierter Kettenreaktionen
-
-Automatisierungen erzeugen neue Aktionen bei der Regelauswertung während eines Aktualisierungsframes. ArbeitsActions des Benutzers werden unabhängig davon in die `ActionQueue` übernommen.
-
-Aktionsframes selbst lösen keine erneute vollständige Evaluation der Automatisierungsregeln aus.
-
-Dadurch können Aktionsframes keine unbegrenzte Kette weiterer Aktionsframes erzeugen.
-
-### Zeitliche Steuerung
-
-Der Simulationsthread verwaltet den Zeitpunkt des nächsten Aktualisierungsframes.
-
-Sobald dieser Zeitpunkt erreicht ist, erhält der Aktualisierungsframe Priorität gegenüber weiteren Aktionen.
-
-Wenn keine Aktionen anstehen, wartet der Simulationsthread bis zum nächsten Aktualisierungsframe oder bis neue Aktionen eintreffen.
-
-Dadurch wird verhindert, dass die Simulation unnötig Rechenleistung beansprucht.
-
-## 4. Automatisierung und Observer Pattern
-
-Die **automatisierte Logik-Engine ist eine Muss-Anforderung**, keine optionale Erweiterung.
-
-Geplant ist das **Observer Pattern** zwischen Sensoren und einem `DeviceController`:
-
-- Sensorwerte können sich während eines Aktualisierungsframes ändern.
-- Die relevanten Beobachter werden über diese Änderung informiert.
-- Der `DeviceController` überprüft, ob eine hinterlegte Regel zutrifft (beispielsweise: Feuchtigkeit unter einem Grenzwert).
-- Trifft sie zu, wird die zugehörige Aktion für ein nachfolgendes Aktionsframe in die `ActionQueue` eingereiht.
-
-Die Benachrichtigung durch das Observer Pattern und die eigentliche Geräteaktion sind damit bewusst **zeitlich entkoppelt**. So soll etwa eine Bewässerungsaktion nicht noch im selben Frame weitere unmittelbare Regelauswertungen auslösen.
-
-## 5. User-Interaktionen, Threading und Queues
-
-Die Anwendung verwendet zwei Threads:
-
-* **UI-Thread:** Verwaltet die Benutzereingaben und die Ausgabe im Terminal.
-* **Simulationsthread:** Verarbeitet Aktualisierungsframes und Aktionsframes.
-
-Die Trennung ist notwendig, da blockierende Konsoleneingaben wie `readln()` andernfalls die Simulation anhalten würden.
-
-### UserActionQueue
-
-Benutzerbefehle werden vom `IOManager` in AnzeigeActions und ArbeitsActions unterschieden. **Nur ArbeitsActions** werden über eine eigene `UserActionQueue` an den Simulationsthread übermittelt; AnzeigeActions werden direkt im UI verarbeitet.
-
-Dabei wird zwischen zwei Arten von Benutzeraktionen unterschieden:
-
-#### AnzeigeActions
-
-AnzeigeActions dienen ausschliesslich dem Auslesen und Anzeigen von Informationen.
-
-Beispiele:
-
-* Alle vorhandenen Geräte anzeigen.
-* Den aktuellen Zustand eines Geräts anzeigen.
-* Sensorwerte auslesen.
-
-Diese Aktionen verändern den Simulationszustand nicht und müssen deshalb nicht als Aktionsframes ausgeführt werden.
-
-Sie werden direkt vom UI anhand eines konsistenten, unveränderlichen Snapshots verarbeitet und benötigen weder `UserActionQueue` noch Aktionsframe.
-
-#### ArbeitsActions
-
-ArbeitsActions verändern den Zustand der Simulation.
-
-Beispiele:
-
-* Eine Lampe einschalten.
-* Die Solltemperatur einer Heizung ändern.
-* Ein neues Gerät hinzufügen.
-
-ArbeitsActions benötigen keinen eigenen Frame-Typ und müssen nicht zwingend als separate Klassen modelliert werden.
-
-Stattdessen werden die entsprechenden Benutzerbefehle in ausführbare Aktionen übersetzt und über die thread-sichere `UserActionQueue` an den Simulationsthread übergeben. Dieser übernimmt sie in die `ActionQueue`, aus der sie zwischen zwei Aktualisierungsframes als Aktionsframes abgearbeitet werden. Ein eigener UserFrame ist nicht vorgesehen.
-
-### ActionQueue
-
-Die `ActionQueue` enthält alle auszuführenden Aktionen der Simulation.
-
-Aktionen können aus zwei Quellen entstehen:
-
-1. Automatisierungsregeln, die während eines Aktualisierungsframes evaluiert werden.
-2. ArbeitsActions, die vom Benutzer über die `UserActionQueue` eingereicht werden.
-
-Die Aktionen werden zwischen den Aktualisierungsframes verarbeitet.
-
-Sobald der nächste Aktualisierungsframe fällig wird, erhält dieser Vorrang vor den noch wartenden Aktionen.
-
-### Thread-Sicherheit
-
-Da UI und Simulation auf unterschiedlichen Threads laufen, muss der Zugriff auf gemeinsam verwendete Daten kontrolliert werden.
-
-Zustandsverändernde Aktionen werden ausschliesslich durch den Simulationsthread ausgeführt.
-
-Die Kommunikation zwischen UI und Simulation erfolgt über thread-sichere Queues.
-
-AnzeigeActions lesen einen **konsistenten Snapshot** des aktuellen Simulationszustands. Der Snapshot wird kontrolliert erzeugt und nach seiner Veröffentlichung nicht mehr verändert; dadurch sieht das UI keine teilweise aktualisierten Gerätezustände. Wie die atomare Erstellung bzw. Veröffentlichung technisch umgesetzt wird, wird beim Klassendiagramm und in der Implementierung konkretisiert. 
-
-## 6. Persistenz und Frame-Historie
-
-Ein zentraler **`StorageManager`** ist für Historie und Speicherung verantwortlich:
-
-- **Im RAM:** Nur die **letzten 120 Frames** werden als begrenzte Historie vorgehalten. Ältere Frames werden verworfen.
-- **In der JSON-Datei:** Es wird **ausschliesslich der aktuelle Frame bzw. der zur Wiederherstellung notwendige aktuelle Zustand** gespeichert, nicht der gesamte Verlauf.
-- **Beim Programmstart:** Der gespeicherte Zustand wird eingelesen, sodass die Simulation vom letzten gespeicherten Stand fortgesetzt werden kann.
-- **Nach einem Neustart:** Frühere Frames sind nicht mehr vorhanden; Zurückspulen über den Neustart hinweg ist nicht vorgesehen.
-
-Die Historie im RAM hält die Möglichkeit offen, später eine Rückspul-Funktion zu ergänzen. **Das Zurückspulen selbst ist aktuell nicht Teil des verbindlichen Funktionsumfangs.**
-
-Um Speicher- und Laufzeitkosten zu begrenzen, sollen Frames nur die zur Wiederherstellung tatsächlich benötigten Daten enthalten. Wie und wann die JSON-Datei geschrieben wird (beispielsweise bei jedem Frame oder bei bestimmten Ereignissen), muss noch festgelegt werden.
-
-## 7. Verantwortlichkeiten und Design Patterns
-
-| Baustein | Geplante Verantwortung |
+| Klasse / Bestandteil | Tatsächliche Aufgabe |
 | --- | --- |
-| `IOManager` | Konsolen-Eingaben und -Ausgaben; Aktions- von Anzeigebefehlen unterscheiden |
-| `IoTDevice` | Gemeinsame Grundlage der Geräte |
-| `Measurable` / `Switchable` | Fähigkeiten als Interfaces bereitstellen |
-| `DeviceFactory` | Geräteobjekte gemäss Benutzerauswahl erzeugen (**Factory Pattern**) |
-| `DeviceController` | Sensoränderungen beobachten und Automatisierungsregeln auswerten (**Observer Pattern**) |
-| Simulationssteuerung (Name offen) | Frame-Takt und Wechsel zwischen Aktualisierungs- und Aktionsframes organisieren |
-| `UserActionQueue` / `ActionQueue` | ArbeitsActions vom UI entgegennehmen und zusammen mit automatisierten Aktionen zur Ausführung vorhalten |
-| `StorageManager` | Die letzten 120 Frames im RAM verwalten und den aktuellen Zustand als JSON speichern/laden |
+| `Main.kt` | Erstellt `ProgrammManager` und startet `runSimulation()`. |
+| `ProgrammManager` | Verwaltet Geräteliste, separate Sensorliste, `Queue<Frame>` und Automationsliste; führt die Simulationsschleife aus. |
+| `IOManager` | Liest und interpretiert Konsolenbefehle, zeigt Daten an, erstellt Frames und ruft für neue Geräte die Factory auf. |
+| `IoTDevice` | Offene Basisklasse für gemeinsamen Namen und UUID. |
+| `Lamp`, `Sensor`, `WaterDispenser` | Konkrete Gerätetypen mit unterschiedlichen Fähigkeiten. |
+| `DeviceFactory` / `DeviceType` | Erzeugen konkrete Geräte anhand eines Typs; **Simple Factory**. |
+| `Command` und konkrete Commands | Kapseln auszuführende Aktionen; **Command Pattern**. |
+| `Frame`, `ActionFrame`, `DisplayFrame`, `RefreshFrame` | Gemeinsame Frame-Abstraktion sowie Ausführung von Befehlen, Anzeigen und Sensoraktualisierungen. |
+| `Queue<T>` | Selbst implementierte generische Warteschlange mit normalem und priorisiertem Einfügen. |
+| `Automation` | Prüft eine Bedingung `() -> Boolean` und liefert bei Erfüllung einen zugeordneten `Frame`. |
+| `UnrealisticSimulationException` | Eigener Exception-Typ für unrealistische simulierte Sensordaten. |
 
-Die Zuordnung ist eine **Planung**. Ob die Queues eigene Klassen oder verwendete Bibliothekstypen sind, steht noch nicht fest. Die endgültigen Verantwortlichkeiten werden im Klassendiagramm und im Code präzisiert.
+Die Klassen liegen hauptsächlich in `src/` sowie in den Unterverzeichnissen `devices/`, `commands/`, `frames/`, `functionalities/` und `exceptions/`. Es besteht eine gewisse Aufgabentrennung, allerdings enthält `IOManager` derzeit auch die Zusammenstellung von Commands und die Geräteerstellung; eine eigenständige Persistenzschicht gibt es nicht.
 
-Die getrennten Bereiche **Benutzerschnittstelle**, **Simulations-/Gerätelogik** und **Persistenz** sollen auch die vom Auftrag verlangte Schichtentrennung ermöglichen.
+## 2. Gerätehierarchie und Interfaces
 
-## 8. Noch offene Entscheidungen
+### Gemeinsame Basis
 
-- Welche konkreten Gerätetypen umgesetzt werden und welche Eigenschaften/Fähigkeiten sie jeweils haben.
-- Ob der An-/Aus-Status tatsächlich in die Basisklasse gehört.
-- Wie konsistente Snapshots technisch erstellt und sicher an den UI-Thread übergeben werden.
-- Wann und wie ArbeitsActions aus der `UserActionQueue` in die `ActionQueue` übernommen werden sowie in welcher Reihenfolge mehrere Aktionen ausgeführt und Fehler behandelt werden.
-- Wann der aktuelle Zustand in die JSON-Datei geschrieben wird.
-- Welche Klassenbeziehungen und Interaktionen im UML-Klassen- und Sequenzdiagramm festgehalten werden.
+`IoTDevice` ist als `open class` implementiert, **nicht als `abstract class`**. Die Klasse besitzt:
 
----
+- `name: String`
+- `id: UUID`, standardmässig zufällig erzeugt
+- `displayBasicInfos()` zur Ausgabe von Name und ID
 
-**Herkunft / KI-Unterstützung:** Die ursprünglichen Architekturgedanken stehen in [PlanningThoughts.md](./PlanningThoughts.md). Diese Zusammenfassung wurde auf Basis der bisherigen `Architecture.md`, der Planungsnotizen und der nachträglich ausdrücklich festgelegten Entscheidungen mit KI überarbeitet. Der Projektverfasser muss diese Fassung noch kontrollieren und bei Bedarf korrigieren.
+Die konkreten Klassen `Lamp`, `Sensor` und `WaterDispenser` erben von `IoTDevice`. Sie werden gemeinsam in einer `MutableList<IoTDevice>` gehalten. Damit nutzt die Verwaltung den gemeinsamen Basistyp und benötigt keine getrennte Geräteliste für jeden Gerätetyp.
+
+### Fähigkeiten über Interfaces
+
+| Interface | Methoden | Aktuelle Implementierung |
+| --- | --- | --- |
+| `Switchable` | `turnOn()`, `turnOff()` | `Lamp` |
+| `Measurable` | `readData()`, `refreshData()`, `influenceData(Double)` | `Sensor` |
+| `LiquidDispensable` | `dispense(List<Sensor>)` | `WaterDispenser` |
+| `Displayable` | `displayData()` | `Lamp`, `Sensor` |
+
+Diese Aufteilung ist ein Beispiel für **Komposition von Fähigkeiten über Interfaces**: Der `IOManager` bestimmt die angebotenen Aktionen anhand von `is Switchable`, `is Measurable` beziehungsweise `is LiquidDispensable`. Es wird kein allgemeiner An-/Aus-Status für sämtliche Geräte erzwungen.
+
+### Sensoren und Wasserspender
+
+Ein `Sensor` ist mit einem `SensorType` konfiguriert (`AIR_HUMIDITY`, `EARTH_HUMIDITY`, `AIR_TEMPERATURE`, `WATER_TEMPERATURE`, `BRIGHTNESS`). Jeder Sensortyp hat einen Standardwert und einen maximalen Offset.
+
+Beim `refreshData()` wird ein zufälliger Zielwert innerhalb dieses Bereichs bestimmt. Der vorhandene Wert bewegt sich mit dem Faktor `0.2` in Richtung des Zielwerts. Anschliessend prüft der Sensor, ob das Resultat im zulässigen Bereich liegt, und wirft gegebenenfalls `UnrealisticSimulationException`.
+
+Der `WaterDispenser` beeinflusst ausschliesslich Sensoren des Typs `EARTH_HUMIDITY`, indem er deren aktuellen Wert um `10.0` erhöht. Eine Begrenzung auf einen zulässigen Maximalwert findet dabei nicht statt.
+
+## 3. Design Patterns
+
+### Command Pattern – umgesetzt
+
+`Command` definiert `execute()`. Die konkreten Implementierungen sind:
+
+- `TurnOnCommand` / `TurnOffCommand`
+- `InfluenceDataCommand`
+- `DispenseLiquidCommand`
+- `RefreshDataCommand`
+- `CreateDeviceCommand`
+
+Ein Command trägt die für seine Ausführung benötigten Objekte und gegebenenfalls Parameter in sich. Beispielsweise speichert `TurnOnCommand` eine `Switchable`-Referenz, während `CreateDeviceCommand` ein `IoTDevice` und die veränderbare Geräteliste speichert.
+
+`ActionFrame` enthält einen `Command` und **delegiert seine `execute()`-Methode** an `command.execute()`. Dadurch muss der `ProgrammManager` nicht wissen, ob ein Frame eine Lampe einschaltet, Sensordaten beeinflusst oder ein neues Gerät registriert. Der Ablauf lässt sich über einen einheitlichen `Frame`-Typ steuern.
+
+**Abgrenzung:** `RefreshDataCommand` ist vorhanden, wird im aktuellen `RefreshFrame` aber nicht direkt verwendet. `RefreshFrame` ruft selbst `refreshData()` auf den enthaltenen `Measurable`-Objekten auf.
+
+### Simple Factory – umgesetzt
+
+`DeviceFactory.createDevice(type: DeviceType, name: String, sensorType: SensorType)` erstellt je nach Geräteart eine `Lamp`, einen `Sensor` oder einen `WaterDispenser` und gibt `IoTDevice` zurück. Der `sensorType` besitzt einen Standardwert für Bodenfeuchtigkeit.
+
+Die Factory wird an zwei Stellen benutzt:
+
+1. `ProgrammManager` erstellt darüber die drei anfänglichen Geräte.
+2. `IOManager.createDevice()` erstellt nach der Auswahl über `make` ein neues Gerät und übergibt es an `CreateDeviceCommand`.
+
+**Begründung:** Die Kenntnis der konkreten Gerätekonstruktoren liegt zentral in der Factory. Die übrige Verwaltung kann Geräte über ihren gemeinsamen Basistyp entgegennehmen. Diese Implementierung ist ausdrücklich eine **Simple Factory** und nicht zwingend das formale GoF-*Factory Method*-Pattern.
+
+### Observer Pattern – nicht umgesetzt
+
+Sensoren verfügen über keine Registrierung von Observern und versenden keine Änderungsbenachrichtigungen. Die `Automation`-Klasse ist eine einfache Regelprüfung. Ihre Existenz allein macht das System **nicht** zu einer Observer-Implementierung.
+
+## 4. Frames und die Simulationsschleife
+
+### Frame-Abstraktion
+
+`Frame` ist eine abstrakte Klasse mit `execute()`. Daraus leiten sich ab:
+
+- **`ActionFrame`**: führt einen gespeicherten `Command` aus.
+- **`DisplayFrame`**: ruft `displayData()` auf einer Liste von `Displayable`-Objekten auf.
+- **`RefreshFrame`**: ruft `refreshData()` auf seiner Liste von `Measurable`-Objekten auf.
+
+### Ablauf im `ProgrammManager`
+
+Die aktuelle Anwendung besitzt **nur eine Simulationsschleife**, keinen separaten Simulationsthread. Der Ablauf ist vereinfacht:
+
+1. Die Zeit seit dem letzten geplanten Refresh wird geprüft.
+2. Sind mindestens `1000` Millisekunden vergangen, wird ein `RefreshFrame` mit hoher Priorität in `actionQueue` eingeordnet. Zuvor gibt `IOManager.displayData()` die derzeit bekannten Sensorwerte aus.
+3. Andernfalls fragt `IOManager.userAction()` eine Benutzeraktion ab. Diese kann einen `ActionFrame` oder `DisplayFrame` zurückgeben, der ebenfalls priorisiert eingeordnet wird.
+4. Das nächste `Frame`-Objekt wird aus der Queue entfernt und ausgeführt.
+5. War es ein `RefreshFrame`, wird anschliessend `checkAllAutomations()` aufgerufen.
+
+**Wichtige Einschränkung:** Da die Schleife bei `readln()` auf eine Eingabe wartet, kann die Sensoraktualisierung nicht unabhängig vom Benutzer alle Sekunden stattfinden. Der Wert `1000` Millisekunden ist hier eine Abfragebedingung, **kein garantierter Takt**. Die Sensorwerte werden im Refresh-Zweig zudem **vor** dem neu eingeplanten Refresh angezeigt.
+
+### Warteschlange `Queue<T>`
+
+Die eigene generische Klasse verwaltet eine `MutableList<T>` und bietet:
+
+- `add(item)`: am Ende einfügen
+- `addImportant(item)`: am Anfang einfügen
+- `remove()`: erstes Element entfernen oder `null` zurückgeben
+- `contains(item)`: nach einem vorhandenen Element suchen
+
+`ProgrammManager` verwendet sie als `Queue<Frame>`. Es gibt **keine separate `UserActionQueue`**. Die Implementierung ist nicht als threadsicher ausgelegt; die innere Liste ist derzeit auch von aussen zugänglich.
+
+## 5. Benutzerinteraktion und Geräteverwaltung
+
+`IOManager.userAction()` unterscheidet vier Befehle:
+
+| Befehl | Ablauf |
+| --- | --- |
+| `read <name/UUID>` | Sucht das Gerät und erzeugt für `Displayable` ein `DisplayFrame`. |
+| `read all` | Gibt lediglich `displayBasicInfos()` für jedes Gerät aus (Name und UUID). |
+| `edit <name/UUID>` | Erwartet einen Sensor und einen neuen Zahlenwert; erzeugt ein `ActionFrame` mit `InfluenceDataCommand`. |
+| `work <name/UUID>` | Listet passende Aktionen anhand der Interfaces auf; erzeugt den gewählten Command im `ActionFrame`. |
+| `make` | Fragt Gerätetyp, Name und gegebenenfalls Sensortyp ab; erzeugt ein `ActionFrame` mit `CreateDeviceCommand`. |
+
+Die Gerätesuche erfolgt über Name oder UUID. Für den normalen Befehlsweg wird die Eingabe in Kleinbuchstaben umgewandelt; bei der separaten Sensoreingabe für den Wasserspender geschieht dies derzeit nicht konsistent.
+
+**Bekannter Bug:** In `userAction()` führt gerade die Antwort `y` auf `Want to take an Action? (y/N)` zu `return null`. Die beabsichtigte Ja/Nein-Logik ist damit vertauscht.
+
+**Bekannte Einschränkung beim Erstellen:** `CreateDeviceCommand` fügt das neue Gerät unmittelbar zur Liste `iotDevices` hinzu. Diese Änderung erfolgt **nicht über** `ProgrammManager.updateDevices()`, welches auch die gesonderte Liste `sensors` aktualisieren würde. Neu angelegte Sensoren können deshalb in der Geräteliste vorhanden sein, ohne an den regelmässigen Refresh-Vorgängen teilzunehmen.
+
+## 6. Automatisierungen: vorbereitete Struktur, keine eingerichteten Regeln
+
+Die Klasse `Automation` speichert:
+
+- `condition: () -> Boolean`
+- `action: Frame`
+
+`checkAutomation()` gibt den Aktionsframe zurück, wenn die Bedingung wahr ist, ansonsten `null`.
+
+`ProgrammManager` besitzt eine `MutableList<Automation>` und ruft nach der Ausführung eines `RefreshFrame` die Methode `checkAllAutomations()` auf. Diese kontrolliert die Regeln und reiht erfüllte Aktionen ein, sofern das entsprechende Frame-Objekt nicht schon in der Queue liegt.
+
+**Aktueller Stand:** Die Automationsliste wird nirgends mit Regeln befüllt. Deshalb führt die Regelprüfung im ausgelieferten Programm praktisch keine automatischen Aktionen aus. Eine Benutzerschnittstelle zum Definieren von Regeln fehlt. Dies ist **Polling nach einem Refresh**, kein Observer Pattern.
+
+## 7. Eingabevalidierung und Exception Handling
+
+Vorhandene Massnahmen:
+
+- `toIntOrNull()` und Bereichsprüfungen für nummerierte Optionen.
+- `toDoubleOrNull()` für eingegebene Sensorwerte.
+- `require(name.isNotBlank())` in der Factory.
+- Eigene `UnrealisticSimulationException` beim Erkennen unzulässiger Sensordaten.
+- `try/catch` in `ProgrammManager.runSimulation()` für `UnrealisticSimulationException`.
+
+**Grenzen der Umsetzung:** Beim Auffangen einer `UnrealisticSimulationException` erscheint eine Meldung und das Programm beendet sich mit `exitProcess(0)`; die Simulation läuft danach nicht weiter. Leere Gerätenamen führen durch `require(...)` zu einer `IllegalArgumentException`, die an dieser Stelle nicht gesondert abgefangen wird. Eingesetzte Sensorwerte werden beim Schreiben nicht auf den plausiblen Bereich begrenzt. Fehlerbehandlung und Eingabevalidierung sind daher **nur teilweise umgesetzt**.
+
+## 8. Ursprünglich geplant, derzeit nicht umgesetzt
+
+| Ursprüngliches Konzept | Stand im Code vom 2. November 2026 |
+| --- | --- |
+| Separater UI- und Simulationsthread | Nicht vorhanden: eine blockierende Schleife mit `readln()`. |
+| Beobachter bei Sensoränderungen (`Observer Pattern`) | Nicht vorhanden. |
+| Vollständige Automatisierungs-Engine mit Regeln aus dem UI | Nur Datenstruktur und Prüfmethode vorhanden; keine Regeln eingerichtet. |
+| `UserActionQueue` neben `ActionQueue` | Nicht vorhanden: eine eigene `Queue<Frame>` wird verwendet. |
+| `StorageManager` und JSON-Speicherung | Nicht vorhanden. |
+| Begrenzte Historie der letzten 120 Frames | Nicht vorhanden. |
+| Wiederherstellung des Zustands nach einem Neustart | Nicht vorhanden. |
+| Unveränderliche Snapshots zur sicheren UI-Anzeige | Nicht vorhanden. |
+| Rückspulfunktion | Nicht vorhanden; war ohnehin als mögliche spätere Erweiterung gedacht. |
+
+Der Umfang wurde gegenüber der ursprünglichen Planung reduziert, um die objektorientierte Grundstruktur und konkrete, demonstrierbare Geräteaktionen umzusetzen. Die fehlenden Komponenten bleiben als offene Anforderungen nachvollziehbar; sie werden **nicht** als bereits implementiert dargestellt.
+
+## 9. Clean Code: nachvollziehbare Entscheidungen und Grenzen
+
+**Positiv erkennbar:**
+
+- Gerätefähigkeiten sind über kleine Interfaces beschrieben.
+- Commands kapseln unterschiedliche Aktionen hinter einer gemeinsamen Schnittstelle.
+- `DeviceFactory` bündelt die Instanziierung konkreter Geräteklassen.
+- `Frame` bildet den gemeinsamen Ausführungstyp für die Warteschlange.
+- Der eigene generische Typ `Queue<T>` lässt sich unabhängig von `Frame` verwenden.
+
+**Noch verbesserungswürdig:**
+
+- `IOManager` übernimmt neben Ein-/Ausgabe auch Geräteerzeugung und Command-Zusammenstellung.
+- Die Rückfrage nach einer Aktion enthält einen Logikfehler.
+- Die allgemeine Geräteliste und die spezielle Sensorliste werden bei `make` nicht synchron gehalten.
+- Die innere `Queue`-Liste ist öffentlich zugänglich.
+- Fehlerbehandlung und Behandlung unzulässiger Sensorwerte sind nicht durchgehend robust.
+
+Diese Gegenüberstellung dient als ehrliche **Code-Reflexion**; sie behauptet keine vollständige Clean-Code-Konformität.
+
+## 10. UML, Quellenstand und KI-Unterstützung
+
+Die vorhandenen Dateien [ClassUML.png](./ClassUML.drawio.png) und [SequenceDiagramm.png](./SequenceDiagramm.png) wurden bei dieser Aktualisierung **nicht verändert**. Das neue UML-Klassendiagramm erstellt beziehungsweise aktualisiert der Projektverfasser selbst. Dabei müssen die aktuell vorhandenen Klassen und Beziehungen berücksichtigt und nicht umgesetzte Bausteine aus dem ursprünglichen Entwurf entfernt oder als Planung gekennzeichnet werden.
+
+Die ursprünglichen Gedanken stehen in [PlanningThoughts.md](./PlanningThoughts.md). Die redaktionelle Überarbeitung dieser Architekturdatei und von `README.md` am **2. November 2026** erfolgte durch ChatGPT auf Basis des aktuellen Quellcodes. Es wurden in diesem Schritt **keine Kotlin-Dateien und keine Diagramme geändert**. Details dazu stehen in [KI_Nutzung.md](./KI_Nutzung.md).

@@ -1,74 +1,108 @@
-# Smart-Home Simulation & Manager
+# SmartHomeSimulator – Smart-Home-Simulation und Manager
 
-Eine terminalbasierte Anwendung zur Simulation und Verwaltung verschiedener IoT-Geräte. Benutzer können Geräte anlegen, deren Werte auslesen und steuerbare Geräte bedienen. Zusätzlich reagiert eine automatisierte Logik auf simulierte Sensorwerte und löst passende Aktionen aus.
+**Stand der Implementierung: 2. November 2026**  
+**Sprache:** Kotlin (JVM) | **Bedienung:** Terminal/Konsole
 
-Die Simulation läuft unabhängig von der Konsoleneingabe: Auf einem eigenen Thread wird **jede Sekunde ein Aktualisierungsframe eingeplant**. Zwischen diesen Aktualisierungen werden möglichst viele Aktionsframes verarbeitet; ein bereits laufender Aktionsframe wird zuerst beendet. Der aktuelle Zustand kann in einer JSON-Datei gespeichert und bei einem Neustart wieder geladen werden.
+## Projektidee und Ziel
 
-## Muss-Anforderungen
+Der SmartHomeSimulator bildet unterschiedliche IoT-Geräte in einer einfachen Simulation ab. Benutzer können Geräte anzeigen, Sensorwerte verändern, Lampen schalten und neue Geräte erstellen. Die Anwendung soll dabei zentrale Konzepte der objektorientierten Programmierung demonstrieren: Vererbung, Interfaces, Polymorphismus, Delegation, Generics und Design Patterns.
 
-- Verschiedene Arten von IoT-Geräten anlegen und verwalten können.
-- Daten einzelner Geräte (z. B. eines Luftfeuchtigkeitssensors) auslesen können.
-- Daten aller Geräte anzeigen können.
-- Aktionen an steuerbaren Geräten ausführen können (z. B. eine Lampe ein- oder ausschalten).
-- Sensorwerte simulieren und mittels einer **automatisierten Logik-Engine** auf definierte Bedingungen reagieren; passende Geräteaktionen werden automatisch ausgelöst.
-- Automatisierungsregeln über die Benutzeroberfläche definieren können.
-- Zwei Arten von Frames verwenden: **Aktualisierungsframes** für Sensorwerte und Regelauswertung sowie **Aktionsframes** für vorgemerkte Aktionen.
-- Die letzten **120 Frames im Arbeitsspeicher** vorhalten. In der JSON-Datei wird dagegen **nur der aktuelle Zustand** gespeichert.
-- Den gespeicherten Zustand beim nächsten Programmstart wiederherstellen können.
-- Benutzereingaben validieren und Fehler behandeln, ohne die Simulation unkontrolliert zu beenden.
-- Auf einem separaten Simulationsthread jede Sekunde einen Aktualisierungsframe einplanen; dazwischen Aktionsframes möglichst schnell abarbeiten.
-- Fällige Aktualisierungsframes gegenüber noch nicht begonnenen Aktionsframes priorisieren; laufende Aktionsframes werden beendet, bevor die Aktualisierung startet.
+Die ursprünglichen Ideen und weitergehenden Ziele stehen in [PlanningThoughts.md](./PlanningThoughts.md). Dieses README beschreibt dagegen **den tatsächlich vorhandenen Stand**, nicht sämtliche ursprünglich geplanten Funktionen.
 
+## Umgesetzte Funktionen
 
-## Erweiterte Anforderungen (Nice-to-have)
+- Drei Gerätearten: `Lamp`, `Sensor` und `WaterDispenser`.
+- Gemeinsame Gerätebasis `IoTDevice` mit Name und UUID sowie gerätespezifische Interfaces.
+- Startgeräte: `Desktop Lamp`, `Plant Earth-Humidity Sensor` und `Plant Water Dispenser`.
+- `read <Gerätename/UUID>` zum Anzeigen unterstützter Gerätedaten; `read all` listet die Namen und UUIDs aller Geräte auf.
+- `work <Gerätename/UUID>` zur Auswahl der für ein Gerät verfügbaren Aktionen, beispielsweise Lampe ein-/ausschalten, Sensorwert beeinflussen oder Wasser auf einen Bodenfeuchtigkeitssensor anwenden.
+- `edit <Gerätename/UUID>` zum direkten Setzen eines Sensorwertes.
+- `make` zur interaktiven Erstellung einer Lampe, eines Sensors (mit Sensortyp) oder eines Wasserspenders.
+- Frames für Geräteaktionen, Anzeigen und die Aktualisierung von Sensoren; eine eigene generische Warteschlange `Queue<T>`.
+- Eine vorbereitete Automatisierungsstruktur (`Automation`, `checkAllAutomations()`), die zurzeit **keine eingerichteten Regeln** besitzt.
 
-- Protokolle bzw. Simulationsdaten als CSV exportieren.
-- Eine spätere Rückspul-Funktion wäre mit der Historie im RAM denkbar, **ist derzeit aber keine zugesagte Funktion**. Nach einem Neustart stehen frühere Frames nicht mehr zur Verfügung.
+**Sensortypen:** `AIR_HUMIDITY`, `EARTH_HUMIDITY`, `AIR_TEMPERATURE`, `WATER_TEMPERATURE` und `BRIGHTNESS`. Die Sensorwerte starten mit einem Standardwert und bewegen sich bei der Aktualisierung schrittweise auf einen simulierten Zielwert zu.
 
-## Use Cases
+## Start und Bedienung
 
-1. **Gerät erstellen:** Als Benutzer kann ich eine Geräteart auswählen und ein neues Gerät anlegen.
-2. **Einzelnes Gerät auslesen:** Als Benutzer kann ich die verfügbaren Daten eines bestimmten Geräts anzeigen.
-3. **Alle Geräte auslesen:** Als Benutzer kann ich die Daten bzw. Zustände aller Geräte anzeigen.
-4. **Gerät steuern:** Als Benutzer kann ich einem steuerbaren Gerät einen Befehl geben (z. B. Lampe einschalten).
-5. **Automatisierungsregel definieren:** Als Benutzer kann ich Bedingungen und zugehörige Geräteaktionen festlegen.
-6. **Automatische Reaktion beobachten:** Als Benutzer kann ich beobachten, wie bei einer erfüllten Bedingung (z. B. zu niedriger Feuchtigkeit) die definierte Geräteaktion ausgelöst wird.
-7. **Zustand wiederherstellen:** Als Benutzer kann ich das Programm neu starten und mit dem zuletzt gespeicherten Zustand weiterarbeiten.
-8. **Während der Simulation bedienen:** Als Benutzer kann ich Befehle eingeben, ohne die laufende Simulation anzuhalten.
+Das Projekt verwendet Gradle und das Kotlin-JVM-Plugin in Version `2.1.10`. Die Anwendung kann beispielsweise in IntelliJ IDEA über die `main()`-Funktion in `src/Main.kt` gestartet werden. Der Gradle-Wrapper liegt im Repository; mit `./gradlew build` lässt sich das Projekt bauen. Ein separater `run`-Task ist im aktuellen Gradle-Skript nicht eingerichtet.
 
-## Geplante Design Patterns
+Nach dem Start werden Benutzereingaben über den `IOManager` abgefragt. Beispiele für die Befehlszeile nach der Frage **`What action?`**:
 
-### 1. Factory Pattern (`DeviceFactory`)
+```text
+read all
+read desktop lamp
+work desktop lamp
+edit plant earth-humidity sensor
+work plant water dispenser
+make
+```
 
-Wenn der Benutzer im Menü eine Geräteart auswählt, übernimmt die Factory die Erzeugung des passenden Objekts. Dadurch muss die Benutzeroberfläche die konkreten Konstruktoren der einzelnen Geräte nicht kennen. Die Objekterstellung bleibt von der Ein- und Ausgabe getrennt.
+Bei `work` und `make` erscheinen weitere Auswahl- und Eingabeaufforderungen. Gerätenamen werden beim normalen Befehl zunächst in Kleinbuchstaben umgewandelt.
 
-### 2. Observer Pattern (Sensoren und `DeviceController`)
+**Bekannter Eingabefehler:** Die Rückfrage `Want to take an Action? (y/N)` ist im aktuellen Code verkehrt implementiert: Eine Antwort `y` überspringt die Aktionsauswahl. Für die Demonstration führt zurzeit beispielsweise `n` zur Frage `What action?`. Das entspricht nicht der beabsichtigten Bedienung und sollte korrigiert werden.
 
-Wenn sich ein relevanter Sensorwert ändert, kann der Sensor seine Beobachter benachrichtigen. Der `DeviceController` wertet die Benachrichtigung im Rahmen der Automatisierungslogik aus. Trifft eine Bedingung zu, wird eine Aktion **für ein späteres Aktionsframe vorgemerkt**, statt sofort eine möglicherweise unkontrollierte Folge von Aktionen auszuführen.
+## Use Cases und aktueller Umsetzungsstand
 
-Die Automatisierung und damit dieser Einsatz des Observer Patterns gehören zu den **Muss-Anforderungen**.
+| Use Case | Status | Erläuterung |
+| --- | --- | --- |
+| Neues Gerät erstellen | Umgesetzt, mit Einschränkung | `make` nutzt `DeviceFactory` und `CreateDeviceCommand`. Neu erstellte Sensoren werden jedoch nicht in die separate Sensorliste für periodische Updates übernommen. |
+| Einzelnes Gerät auslesen | Umgesetzt | `read` funktioniert für Geräte, die `Displayable` implementieren, etwa Lampen und Sensoren. |
+| Alle Geräte anzeigen | Teilweise | `read all` zeigt Name und UUID, nicht sämtliche Gerätewerte und -zustände. |
+| Geräte steuern | Umgesetzt | Lampen schalten, Sensorwerte beeinflussen und Bodenfeuchtigkeit über den Wasserspender erhöhen. |
+| Sensorwerte simulieren | Teilweise | `RefreshFrame` und Sensoraktualisierung sind vorhanden; der Aktualisierungstakt ist wegen blockierender Konsoleneingaben nicht zuverlässig. |
+| Automatisierungsregeln definieren und ausführen | Vorbereitet, nicht nutzbar | `Automation` und die Regelauswertung existieren, aber es gibt weder eingerichtete Regeln noch einen Befehl zum Anlegen solcher Regeln. |
+| Zustand speichern und wiederherstellen | Nicht umgesetzt | Keine JSON-Persistenz und kein `StorageManager`. |
+| Simulation unabhängig von Benutzereingaben ausführen | Nicht umgesetzt | Die Anwendung läuft derzeit in einer einzigen Schleife; `readln()` blockiert sie. |
+| Historie der letzten 120 Frames | Nicht umgesetzt | Keine Frame-Historie oder Rückspulfunktion. |
 
-## Technischer Überblick
+## Objektorientiertes Design
 
-- **Oberfläche:** Terminal / Konsole, verwaltet durch einen `IOManager`.
-- **Geräte:** Gemeinsame Basis `IoTDevice`; Fähigkeiten werden über Interfaces wie `Measurable` und `Switchable` abgebildet.
-- **Simulation:** Ein eigener Thread plant jede Sekunde einen Aktualisierungsframe ein und verarbeitet dazwischen Aktionsframes.
-- **Steuerung:** AnzeigeActions lesen konsistente Snapshots direkt im UI; zustandsverändernde ArbeitsActions gelangen über die `UserActionQueue` in die `ActionQueue`. Auch automatisch ausgelöste Aktionen werden dort verarbeitet.
-- **Persistenz:** Ein `StorageManager` verwaltet die begrenzte Frame-Historie im RAM und speichert den aktuellen Zustand als JSON.
+### Geräte, Vererbung und Interfaces
 
-Die Begründungen und der geplante Ablauf stehen in [Architecture.md](./Architecture.md). Die ursprünglichen Überlegungen stehen in [PlanningThoughts.md](./PlanningThoughts.md).
+`IoTDevice` ist eine **offene (`open`) Basisklasse**, keine abstrakte Klasse. `Lamp`, `Sensor` und `WaterDispenser` erben davon. Die Fähigkeiten werden über `Switchable`, `Measurable`, `LiquidDispensable` und `Displayable` beschrieben. So kann die Steuerung Geräte nach ihren Fähigkeiten behandeln, statt jede konkrete Klasse einzeln abzufragen.
 
-## Dokumentation und Umsetzung
+### 1. Command Pattern
 
-Dieses Dokument beschreibt den **Planungsstand**, keine bereits fertiggestellte Implementierung. Für den Kompetenznachweis sind unter anderem noch zu erstellen und zu dokumentieren:
+Das Interface `Command` definiert `execute()`. Konkrete Commands wie `TurnOnCommand`, `InfluenceDataCommand`, `DispenseLiquidCommand` und `CreateDeviceCommand` kapseln eine Aktion samt Zielobjekt. `ActionFrame` **delegiert** die Ausführung an den zugehörigen Command. Dadurch bleiben Benutzerinteraktion und konkrete Geräteoperationen voneinander getrennt.
 
-- Ein grobes UML-Klassendiagramm **vor** der Umsetzung und ein aktualisiertes Klassendiagramm zur Abgabe.
-- Ein Sequenzdiagramm für einen typischen Use Case.
-- Die konkrete Anwendung von Vererbung, Interfaces, Polymorphismus, Delegation, Clean Code und mindestens zwei Design Patterns.
-- Eine Trennung von Benutzerschnittstelle, Programmlogik und Persistenz.
-- Die Dokumentation der Eingabevalidierung und Fehlerbehandlung.
-- Ein Fazit zum Lernprozess sowie nachvollziehbare, zeitlich verteilte Git-Commits.
+### 2. Simple Factory
 
-**Rahmen des Auftrags:** Richtwert mindestens 8 selbstgeschriebene Klassen und 800 Codezeilen. KI-Hilfe muss im Code kenntlich gemacht werden; eine vollständig KI-generierte Anwendung ist nicht zulässig. Die Projektidee ist vor der Umsetzung mit der Lehrperson zu besprechen.
+`DeviceFactory.createDevice()` erstellt abhängig von `DeviceType` und gegebenenfalls `SensorType` eine `Lamp`, einen `Sensor` oder einen `WaterDispenser` und gibt jeweils `IoTDevice` zurück. Die Factory wird für die Startgeräte und über den Befehl `make` verwendet. Damit ist die Erstellung der konkreten Geräte an einer Stelle zusammengefasst.
 
-**KI-Unterstützung bei der Dokumentation:** Diese README wurde anhand der eigenen Planung in `PlanningThoughts.md`, des bisherigen README-Entwurfs und der nachträglich präzisierten Entscheidungen mit KI redaktionell überarbeitet. Die fachliche Prüfung durch den Projektverfasser steht noch aus. Falls UML-Diagramme mit KI erstellt werden, werden auch die verwendeten Prompts dokumentiert.
+**Einordnung:** Dies ist eine **Simple Factory**. Sie entspricht nicht zwingend dem klassischen GoF-*Factory Method*-Pattern. Ob die Lehrperson sie als zweites gefordertes Design Pattern anerkennt, muss geklärt werden. Das früher geplante **Observer Pattern ist nicht implementiert**.
+
+### Weitere OOP-Konzepte
+
+- **Polymorphismus:** Geräteliste als `MutableList<IoTDevice>`; Aktionen werden anhand implementierter Fähigkeiten ausgewählt.
+- **Generics:** Selbst implementierte `Queue<T>` für `Frame`-Objekte.
+- **Abstraktion:** `Frame` ist eine abstrakte Klasse mit der Methode `execute()`.
+- **Delegation:** `ActionFrame` ruft den gekapselten `Command` auf; die Geräteerstellung wird an `DeviceFactory` delegiert.
+- **Fehlerbehandlung:** Einige ungültige Eingaben werden mit `toIntOrNull()`, `toDoubleOrNull()` und Indexprüfungen abgefangen. Für unrealistische Sensorwerte existiert `UnrealisticSimulationException`.
+
+Weitere Details stehen in [Architecture.md](./Architecture.md).
+
+## Bekannte Einschränkungen und offene Anforderungen
+
+1. **Konsoleneingabe:** Die oben beschriebene Ja/Nein-Abfrage ist invertiert. Ausserdem blockiert `readln()` die Simulation; es gibt keinen separaten Simulationsthread.
+2. **Neu erstellte Sensoren:** `CreateDeviceCommand` ergänzt die allgemeine Geräteliste. Die im `ProgrammManager` separat gespeicherte Liste `sensors` wird dabei nicht aktualisiert; neue Sensoren nehmen deshalb nicht automatisch an den Aktualisierungsframes teil.
+3. **Unvollständige Fehlerbehandlung:** Bei `UnrealisticSimulationException` gibt der `ProgrammManager` eine Meldung aus und beendet das Programm mit `exitProcess(0)`. Ein leerer Name in der Factory löst eine `IllegalArgumentException` aus, für die keine durchgängige Behandlung vorhanden ist.
+4. **Sensor- und Wasserspenderwerte:** Direkte Änderungen erlauben auch unrealistische Werte. Der Wasserspender erhöht Bodenfeuchtigkeit um `10.0`; dadurch kann ein Sensor später die Plausibilitätsprüfung verletzen.
+5. **Anzeige und Zeitsteuerung:** Die regelmässige Sensorausgabe erfolgt im `ProgrammManager` vor dem Ausführen des jeweiligen `RefreshFrame`. Die angezeigten Werte können daher noch vom vorherigen Stand stammen.
+6. **Automatisierung, Persistenz und Historie:** Die ursprünglichen Erweiterungsziele sind nicht fertiggestellt. Auch eine robuste Trennung von Ein-/Ausgabe, Logik und Datenspeicherung fehlt teilweise.
+
+Im Projektauftrag sind die Speicherung von Daten, die Eingabevalidierung und die nachvollziehbare Dokumentation relevante Anforderungen. Diese Punkte sind mit dem aktuellen Stand **nicht vollständig erfüllt**. Die genannten 800 Codezeilen sind ein Richtwert, der mit dem aktuellen Kotlin-Quellcode noch nicht erreicht wird.
+
+## Diagramme und Projektdokumentation
+
+- [Architecture.md](./Architecture.md): Beschreibung der **aktuellen** Klassen, Abläufe und Entwurfsentscheidungen.
+- [PlanningThoughts.md](./PlanningThoughts.md): Ursprüngliche eigene Planungsnotizen; sie bleiben bewusst als historischer Entwurf erhalten und stimmen nicht in jedem Punkt mit der Implementierung überein.
+- [KI_Nutzung.md](./KI_Nutzung.md): Dokumentation der KI-Unterstützung einschliesslich der KI-Erstellung und -Überarbeitung von Projektdateien.
+- [ClassUML.png](./ClassUML.drawio.png): Vorliegendes Klassendiagramm; **wird vom Projektverfasser noch an den aktuellen Code angepasst**.
+- [SequenceDiagramm.png](./SequenceDiagramm.png): Vorliegendes Sequenzdiagramm; vor der Abgabe ebenfalls mit einem tatsächlich umgesetzten Use Case abgleichen.
+
+**Abgabehinweis:** Der Projektauftrag verlangt ein aktuelles Klassendiagramm, ein Sequenzdiagramm, nachvollziehbare Commits sowie eine Demonstration der vorhandenen Funktionen. Diese Dokumentationsaktualisierung ändert weder Diagramme noch Quellcode und prüft keine Git-Historie.
+
+## KI-Unterstützung
+
+ChatGPT wurde über weite Teile des Projekts als Navigator, Erklärhilfe und Code-Reviewer verwendet. Die Datei `DeviceFactory.kt` und ein Vorschlag zur Initialisierung der Startgeräte stammen aus einer konkreten KI-Codeunterstützung. **Am 2. November 2026 hat ChatGPT dieses README und `Architecture.md` anhand des bereitgestellten Quellcode-Stands redaktionell aktualisiert und die Änderung in `KI_Nutzung.md` protokolliert.** Die Diagramme werden vom Projektverfasser selbst aktualisiert. Einzelheiten und die Abgrenzung zur Eigenleistung stehen in [KI_Nutzung.md](./KI_Nutzung.md).
