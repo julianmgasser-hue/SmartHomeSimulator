@@ -1,7 +1,9 @@
 import devices.Sensor
 import devices.SensorType
+import exceptions.UnrealisticSimulationException
 import frames.Frame
 import frames.RefreshFrame
+import kotlin.system.exitProcess
 
 class ProgrammManager {
     val actionQueue = Queue<Frame>()
@@ -38,7 +40,13 @@ class ProgrammManager {
             }
 
             val nextAction = actionQueue.remove() ?: continue
-            nextAction.execute()
+            try{
+                nextAction.execute()
+            }catch(e : UnrealisticSimulationException){
+                println("Oh no: $e")
+                println("Game Over!")
+                exitProcess(0)
+            }
             if (nextAction is RefreshFrame) checkAllAutomations(actionQueue)
         }
     }

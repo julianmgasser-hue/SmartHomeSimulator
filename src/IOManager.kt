@@ -108,7 +108,7 @@ class IOManager {
                             println("Für welchen Sensor sollte die Flüssigkeit spendiert werden?")
                             val influencedDevice = findDevice(readln(), devices)
                             if (influencedDevice != null) {
-                                val sensor = desiredDevice as? Sensor ?: return null
+                                val sensor = influencedDevice as? Sensor ?: return null
                                 return ActionFrame(
                                     desiredDevice,
                                     DispenseLiquidCommand(desiredDevice as LiquidDispensable, listOf(sensor))
